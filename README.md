@@ -39,4 +39,6 @@ This MATLAB script generates **two independent cam lobes** with separate ellipti
 
 ## Sample Output @ 1000 RPM
 
-![Cam Analysis Plot](cam_analysis.png)
+![Cam Analysis Plot](valve_plot.png)
+
+![Cam Analysis Plot](follower_plot.png)
