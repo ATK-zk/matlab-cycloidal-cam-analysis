@@ -19,4 +19,4 @@ This MATLAB script analyzes the kinematics (displacement, velocity, and accelera
 
 The following plot shows the displacement, velocity, and acceleration for both the follower and the valve in Low-Lift and High-Lift modes at 1000 rpm.
 
-![Cam Analysis Plot](cam_analysis_plot.png)
+![Cam Analysis Plot](cam_analysis.png)
