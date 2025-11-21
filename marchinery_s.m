@@ -11,14 +11,14 @@ L_tan = 30e-3;                         % Tangent length for construction
 phi    = linspace(0, 2*pi, 2400);      % Ellipse sampling
 
 %% -------------------- Lobe 1 parameters --------------------
-theta_start1 = 64.6*pi/180;
-theta_end1   = -64.6*pi/180;
-a1 = 10e-3; b1 = 5e-3; offset1 = 25e-3; theta_peak1 = 0*pi/180;
+theta_start1 = (180+64.6)*pi/180;
+theta_end1   = (180-64.6)*pi/180;
+a1 = 10e-3; b1 = 5e-3; offset1 = 25e-3; theta_peak1 = 180*pi/180;
 
 %% -------------------- Lobe 2 parameters --------------------
-theta_start2 = 53.1*pi/180;
-theta_end2   = -53.1*pi/180;
-a2 = 5e-3; b2 = 5e-3; offset2 = 25e-3; theta_peak2 = 0*pi/180;
+theta_start2 = (180+53.1)*pi/180;
+theta_end2   = (180-53.1)*pi/180;
+a2 = 5e-3; b2 = 5e-3; offset2 = 25e-3; theta_peak2 = 180*pi/180;
 %% -------------------- Build Lobe 1 --------------------
 [x_lobe1, y_lobe1] = build_lobe(theta_start1, theta_end1, R_base, L_tan, ...
     x_base, y_base, a1, b1, offset1, theta_peak1, phi);
@@ -40,7 +40,7 @@ legend('Lobe 1','Lobe 2');
 function [x_lobe, y_lobe] = build_lobe(theta_start, theta_end, R_base, L_tan, ...
     x_base, y_base, a_ellipse, b_ellipse, offset, theta_peak, phi)
 
-    % Ellipse center and rotation (per lobe)
+    % Ellipse construction
     ellipse_center = offset * [cos(theta_peak); sin(theta_peak)];
     theta_rot = theta_peak - pi/2;
     Rrot = [cos(theta_rot), -sin(theta_rot); sin(theta_rot), cos(theta_rot)];
@@ -50,19 +50,17 @@ function [x_lobe, y_lobe] = build_lobe(theta_start, theta_end, R_base, L_tan, ..
     x_ellipse = E(1,:) + ellipse_center(1);
     y_ellipse = E(2,:) + ellipse_center(2);
 
-    % Tangent points on base
-    x0_start = R_base * cos(theta_start);
-    y0_start = R_base * sin(theta_start);
-    x0_end   = R_base * cos(theta_end);
-    y0_end   = R_base * sin(theta_end);
+    % Tangent points on base circle
+    x0_start = R_base * cos(theta_start); y0_start = R_base * sin(theta_start);
+    x0_end   = R_base * cos(theta_end);   y0_end   = R_base * sin(theta_end);
 
-    % Tangent directions (unit)
-    dx_start = -sin(theta_start);  dy_start =  cos(theta_start);
-    dx_end   = -sin(theta_end);    dy_end   =  cos(theta_end);
+    % Tangent directions
+    dx_start = -sin(theta_start); dy_start = cos(theta_start);
+    dx_end   = -sin(theta_end);   dy_end   = cos(theta_end);
     t1_dir = [dx_start; dy_start] / hypot(dx_start, dy_start);
     t2_dir = [dx_end;   dy_end]   / hypot(dx_end,   dy_end);
 
-    % Intersections: ellipse vs infinite tangents
+    % Intersections with ellipse
     tan1_pt = [x0_start; y0_start];
     tan2_pt = [x0_end;   y0_end];
     rel1 = [x_ellipse; y_ellipse] - tan1_pt;
@@ -77,7 +75,7 @@ function [x_lobe, y_lobe] = build_lobe(theta_start, theta_end, R_base, L_tan, ..
     end
     i1 = c1(1); i2 = c2(1);
 
-    % Refine intersection points (linear interpolation)
+    % Refine intersection points
     tlin1 = dist1(i1) / (dist1(i1) - dist1(i1+1));
     p1 = [x_ellipse(i1) + tlin1*(x_ellipse(i1+1)-x_ellipse(i1));
           y_ellipse(i1) + tlin1*(y_ellipse(i1+1)-y_ellipse(i1))];
@@ -85,27 +83,31 @@ function [x_lobe, y_lobe] = build_lobe(theta_start, theta_end, R_base, L_tan, ..
     p2 = [x_ellipse(i2) + tlin2*(x_ellipse(i2+1)-x_ellipse(i2));
           y_ellipse(i2) + tlin2*(y_ellipse(i2+1)-y_ellipse(i2))];
 
-    % Keep the further (longer) ellipse arc between p1 and p2
+    % Arc selection: take the ellipse arc that lies outside the base circle
+    r_ellipse = hypot(x_ellipse, y_ellipse);
+    outside_mask = r_ellipse > R_base;
+    idx_candidates = find(outside_mask);
+    % keep only between intersections
     if i1 < i2
-        idx_arc = [1:i1, i2:length(phi)];
+        idx_arc = i1:i2;
     else
         idx_arc = i2:i1;
     end
+    idx_arc = intersect(idx_arc, idx_candidates);
     x_arc = x_ellipse(idx_arc);
     y_arc = y_ellipse(idx_arc);
 
-    % Trim tangent lines to ellipse contact points
+    % Tangent segments
     x_t1 = linspace(x0_start, p1(1), 80);
-    y_t1 = linspace(y0_start, p1(2), 80);
-    x_t2 = linspace(x0_end,   p2(1), 80);
-    y_t2 = linspace(y0_end,   p2(2), 80);
+    y_t1 = linspace(y0_start,  p1(2), 80);
+    x_t2 = linspace(p2(1), x0_end,  80);
+    y_t2 = linspace(p2(2), y0_end,   80);
 
-    % Trim base circle: remove the shorter arc between the tangent points
+    % Trim base circle
     ang_base = mod(atan2(y_base, x_base), 2*pi);
     theta1 = mod(theta_start, 2*pi);
     theta2 = mod(theta_end,   2*pi);
     delta = mod(theta2 - theta1, 2*pi);
-
     if delta < pi
         between = mod(ang_base - theta1, 2*pi) <= delta;
     else
@@ -116,7 +118,7 @@ function [x_lobe, y_lobe] = build_lobe(theta_start, theta_end, R_base, L_tan, ..
     x_base_trim = x_base(mask_keep_base);
     y_base_trim = y_base(mask_keep_base);
 
-    % Assemble continuous lobe (sequence: base -> tan2 -> ellipse -> tan1)
+    % Assemble lobe: base → tan1 → arc → tan2
     x_lobe = [x_base_trim, x_t2(2:end), x_arc(2:end), x_t1(2:end)];
     y_lobe = [y_base_trim, y_t2(2:end), y_arc(2:end), y_t1(2:end)];
 end
@@ -180,40 +182,39 @@ s_valve1 = -ratio*lift1; v_valve1 = -ratio*v1; a_valve1 = -ratio*a1;
 s_valve2 = -ratio*lift2; v_valve2 = -ratio*v2; a_valve2 = -ratio*a2;
 
 %% ==================== Plotting ====================
-figure('Position',[100,100,1200,850]);
 
-% Follower displacement
-subplot(3,2,1);
+% Follower motion (Position -> Velocity -> Acceleration)
+figure('Position',[100,100,800,900]);
+
+subplot(3,1,1);
 plot(theta_grid,lift2*1e3,'b-',theta_grid,lift1*1e3,'r-','LineWidth',1.5);
 ylabel('Lift (mm)'); title('Follower Displacement');
 legend('Lobe 2','Lobe 1'); grid on; xlim([0 360]);
 
-% Follower velocity
-subplot(3,2,2);
+subplot(3,1,2);
 plot(theta_grid,v2,'b-',theta_grid,v1,'r-','LineWidth',1.5);
 ylabel('Velocity (m/s)'); title('Follower Velocity');
 legend('Lobe 2','Lobe 1'); grid on; xlim([0 360]);
 
-% Follower acceleration
-subplot(3,2,3);
+subplot(3,1,3);
 plot(theta_grid,a2,'b-',theta_grid,a1,'r-','LineWidth',1.5);
 ylabel('Acceleration (m/s²)'); title('Follower Acceleration');
 legend('Lobe 2','Lobe 1'); grid on; xlim([0 360]); xlabel('Cam Angle (°)');
 
-% Valve displacement
-subplot(3,2,4);
+% Valve motion (Position -> Velocity -> Acceleration)
+figure('Position',[100,100,800,900]);
+
+subplot(3,1,1);
 plot(theta_grid,s_valve2*1e3,'b-',theta_grid,s_valve1*1e3,'r-','LineWidth',1.5);
 ylabel('Lift (mm)'); title('Valve Displacement');
 legend('Lobe 2','Lobe 1'); grid on; xlim([0 360]);
 
-% Valve velocity
-subplot(3,2,5);
+subplot(3,1,2);
 plot(theta_grid,v_valve2,'b-',theta_grid,v_valve1,'r-','LineWidth',1.5);
 ylabel('Velocity (m/s)'); title('Valve Velocity');
-legend('Lobe 2','Lobe 1'); grid on; xlim([0 360]); xlabel('Cam Angle (°)');
+legend('Lobe 2','Lobe 1'); grid on; xlim([0 360]);
 
-% Valve acceleration
-subplot(3,2,6);
+subplot(3,1,3);
 plot(theta_grid,a_valve2,'b-',theta_grid,a_valve1,'r-','LineWidth',1.5);
 ylabel('Acceleration (m/s²)'); title('Valve Acceleration');
 legend('Lobe 2','Lobe 1'); grid on; xlim([0 360]); xlabel('Cam Angle (°)');
